@@ -10,4 +10,4 @@ Start Fetch node: `./start_fetch.sh`
 
 Stop Fetch node: `./stop_fetch.sh`
 
-Get started: [docs](https://docs.fetch.ai/)
+Get started: [Fetch.AI documentation](https://docs.fetch.ai/).
