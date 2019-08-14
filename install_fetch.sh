@@ -3,12 +3,12 @@
 onred='\033[41m'
 ongreen='\033[42m'
 onyellow='\033[43m'
-endcolor="\033[0m"
+endcolor='\033[0m'
 
 # Handle errors
 set -e
 error_report() {
-    echo -e "${onred}Error: failed on line $1.$endcolor"
+    echo -e "${onred}Error: get_nodes.sh failed on line $1.$endcolor"
 }
 trap 'error_report $LINENO' ERR
 
@@ -24,63 +24,33 @@ get_latest() {
     cd ..
 }
 
-
-##### CORE DEPENDENCIES #####
-
-echo -e "${onyellow}Installing core tools...$endcolor"
+echo -e "${onyellow}Installing Fetch.AI...$endcolor"
 
 if [[ "$OSTYPE" == "linux-gnu" ]]; then
-    yes | sudo apt-get install build-essential \
-                               git \
-                               cmake \
-                               python3 \
-                               python3-pip \
-                               python3-pytest
+    sudo apt-get update
+    sudo apt-get install -y build-essential python3
+    bazel version || echo "deb [arch=amd64] https://storage.googleapis.com/bazel-apt stable jdk1.8" | sudo tee /etc/apt/sources.list.d/bazel.list && \
+                     curl https://bazel.build/bazel-release.pub.gpg | sudo apt-key add - && \
+                     sudo apt-get update && \
+                     sudo apt-get install bazel
 elif [[ "$OSTYPE" == "darwin"* ]]; then
     xcode-select --version || xcode-select --install
     brew --version || yes | /usr/bin/ruby -e "$(curl -fsSL https://raw.githubusercontent.com/Homebrew/install/master/install)"
-    python3.7 --version || brew install python
-    cmake --version || brew install cmake
+    python3 --version || brew install python
+    if brew ls --versions bazel >/dev/null; then
+        if [[ $(brew outdated bazel) ]]; then
+            HOMEBREW_NO_AUTO_UPDATE=1 brew upgrade bazelbuild/tap/bazel
+        fi
+    else
+        brew tap bazelbuild/tap
+        HOMEBREW_NO_AUTO_UPDATE=1 brew install bazelbuild/tap/bazel
+    fi
 fi
 
-pip3 install --upgrade setuptools
-pip3 install wheel
+pip3 install oef
+get_latest fetchai oef-search-pluto
+get_latest fetchai oef-mt-core
+cd oef-mt-core
+bazel build mt-core/main/src/cpp:app
 
-
-##### FETCH #####
-
-echo -e "${onyellow}Installing Fetch...$endcolor"
-
-if [[ "$OSTYPE" == "linux-gnu" ]]; then
-    yes | sudo apt-get install python3-sphinx \
-                               protobuf-compiler \
-                               libprotobuf-dev \
-                               tox
-elif [[ "$OSTYPE" == "darwin"* ]]; then
-    brew install protobuf # Compiler only so no error if already installed
-fi
-
-# Install OEFPython
-get_latest fetchai oef-sdk-python
-mv oef-sdk-python oefpy
-cd oefpy
-sudo python3 setup.py install
-python3 scripts/setup_test.py
-
-# Build docs
-cd docs
-make html
-cd ../..
-
-# Install OEFCore Docker image for running nodes
-get_latest fetchai oef-core
-mv oef-core oefcore
-cd oefcore
-./oef-core-image/scripts/docker-build-img.sh
-cd ..
-
-# OEF doesn't auto-inflate
-cd /usr/local/lib/python3.7/site-packages || cd /usr/local/lib/python3.6/site-packages
-yes | unzip oef-0.2.0-py3.7.egg
-
-echo -e "${ongreen}Fetch.AI installed successfully.$endcolor"
+echo -e "${ongreen}Nodes installed.$endcolor"
